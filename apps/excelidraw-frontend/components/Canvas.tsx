@@ -1,12 +1,11 @@
-import { initDraw } from "@/draw";
-import { init } from "next/dist/compiled/webpack/webpack";
+
 import { useEffect, useRef, useState } from "react"
 import { IconButton } from "./IconButoon";
-import { Circle, Pencil, RectangleHorizontalIcon } from "lucide-react";
+import { Circle, Minus, RectangleHorizontalIcon } from "lucide-react";
 import { Game } from "@/draw/Game";
 
 
-export type Tool="circle"|"rect"|"pencil";
+export type Tool="circle"|"rect"|"line";
 export function Canvas({
     roomId,socket
 }:{
@@ -51,8 +50,8 @@ function TopBar({selectedTool,setSelectedTool}:{
       }}>
         <div className="flex gap-2">
             <IconButton onClick={()=>{
-                setSelectedTool("pencil")
-            }} activated={selectedTool==="pencil"} icon={<Pencil/>} />
+                setSelectedTool("line")
+            }} activated={selectedTool==="line"} icon={<Minus/>} />
             <IconButton onClick={()=>{
                 setSelectedTool("rect")
             }} activated={selectedTool==="rect"} icon={<RectangleHorizontalIcon/>}  />

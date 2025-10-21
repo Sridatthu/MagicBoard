@@ -13,7 +13,7 @@ type Shape = {
     centerY: number;
     radius: number;
 } | {
-    type: "pencil";
+    type: "line";
     startX: number;
     startY: number;
     endX: number;
@@ -53,7 +53,7 @@ export class Game {
         this.canvas.removeEventListener("mousemove", this.mouseMoveHandler)
     }
 
-    setTool(tool: "circle" | "pencil" | "rect") {
+    setTool(tool: "circle" | "line" | "rect") {
         this.selectedTool = tool;
     }
 
@@ -90,7 +90,7 @@ export class Game {
                 this.ctx.arc(shape.centerX, shape.centerY, Math.abs(shape.radius), 0, Math.PI * 2);
                 this.ctx.stroke();
                 this.ctx.closePath();                
-            }else if( shape.type === "pencil") {
+            }else if( shape.type === "line") {
                 this.ctx.beginPath();
                 this.ctx.moveTo(shape.startX, shape.startY);
                 this.ctx.lineTo(shape.endX, shape.endY);
@@ -130,9 +130,9 @@ export class Game {
                 centerX: this.startX + radius,
                 centerY: this.startY + radius,
             }
-        } else if (selectedTool === "pencil") {
+        } else if (selectedTool === "line") {
             shape = {
-                type: "pencil",
+                type: "line",
                 startX: this.startX,
                 startY: this.startY,
                 endX: e.clientX,
@@ -171,7 +171,7 @@ export class Game {
                 this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
                 this.ctx.stroke();
                 this.ctx.closePath();                
-            }else if(selectedTool === "pencil") {
+            }else if(selectedTool === "line") {
                 this.ctx.beginPath();
                 this.ctx.moveTo(this.startX, this.startY);
                 this.ctx.lineTo(e.clientX, e.clientY);
