@@ -79,7 +79,7 @@ export class Game {
           this.existingShapes = this.existingShapes.filter((s) => s.id !== shapeId);
           this.clearCanvas();
         } else if (message.type === "error") {
-          console.error("Server error:", message.message);
+          // console.error("Server error:");
         }
       } catch (error) {
         console.error("Failed to process WebSocket message:", error);
@@ -443,44 +443,51 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
   };
 
   private getShapeAt(x: number, y: number): Shape | null {
-    for (let i = this.existingShapes.length - 1; i >= 0; i--) {
-      const s = this.existingShapes[i];
-      
-      if (s.type === "rect") {
-        const minX = Math.min(s.x, s.x + s.width);
-        const maxX = Math.max(s.x, s.x + s.width);
-        const minY = Math.min(s.y, s.y + s.height);
-        const maxY = Math.max(s.y, s.y + s.height);
-        if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s;
-      }
-      
-      if (s.type === "circle") {
-        if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
-      }
-      
-      if (s.type === "line") {
-        const tolerance = 5 / this.scale;
-        const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
+  for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+    const s = this.existingShapes[i];
+    
+    if (s.type === "rect") {
+      const minX = Math.min(s.x, s.x + s.width);
+      const maxX = Math.max(s.x, s.x + s.width);
+      const minY = Math.min(s.y, s.y + s.height);
+      const maxY = Math.max(s.y, s.y + s.height);
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s;
+    }
+    
+    if (s.type === "circle") {
+      if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
+    }
+    
+    if (s.type === "line") {
+      const tolerance = 5 / this.scale;
+      const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
+      if (dist <= tolerance) return s;
+    }
+    
+    if (s.type === "arrow") {
+      const tolerance = 5 / this.scale;
+      const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
+      if (dist <= tolerance) return s;
+    }
+    
+    if (s.type === "pencil") {
+      const tolerance = 5 / this.scale;
+      for (let j = 0; j < s.points.length - 1; j++) {
+        const dist = this.pointToLineDistance(
+          x,
+          y,
+          s.points[j].x,
+          s.points[j].y,
+          s.points[j + 1].x,
+          s.points[j + 1].y
+        );
         if (dist <= tolerance) return s;
       }
-      
-      if (s.type === "pencil") {
-        const tolerance = 5 / this.scale;
-        for (let j = 0; j < s.points.length - 1; j++) {
-          const dist = this.pointToLineDistance(
-            x,
-            y,
-            s.points[j].x,
-            s.points[j].y,
-            s.points[j + 1].x,
-            s.points[j + 1].y
-          );
-          if (dist <= tolerance) return s;
-        }
-      }
     }
-    return null;
   }
+  return null;
+}
+
 
   private pointToLineDistance(
     px: number,
