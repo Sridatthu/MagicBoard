@@ -1,11 +1,10 @@
-
 import { useEffect, useRef, useState } from "react"
 import { IconButton } from "./IconButoon";
-import { Circle, Minus, RectangleHorizontalIcon } from "lucide-react";
+import { ArrowRight, Circle, Minus, Pencil, RectangleHorizontalIcon, Trash2 } from "lucide-react";
 import { Game } from "@/draw/Game";
 
+export type Tool="circle"|"rect"|"line"|"arrow"|"pencil"|"select";
 
-export type Tool="circle"|"rect"|"line";
 export function Canvas({
     roomId,socket
 }:{
@@ -21,7 +20,6 @@ useEffect(()=>{
 },[selectedTool,game]);
 
 useEffect(()=>{
-
     if(canvasRef.current){
         const g=new Game(canvasRef.current,roomId,socket)
         setGame(g);
@@ -34,14 +32,18 @@ useEffect(()=>{
 
     return <div style={{height:"100vh",overflow:"hidden"}}>
         <canvas ref={canvasRef} width={window.innerWidth} height={window.innerHeight} ></canvas>
-        <TopBar selectedTool={selectedTool} setSelectedTool={setSelectedTool}/>
+        <TopBar 
+            selectedTool={selectedTool} 
+            setSelectedTool={setSelectedTool}
+            onDelete={() => game?.deleteSelectedShape()}
+        />
     </div>
-
 }
 
-function TopBar({selectedTool,setSelectedTool}:{
+function TopBar({selectedTool,setSelectedTool, onDelete}:{
     selectedTool:Tool,
-    setSelectedTool:(s:Tool)=>void
+    setSelectedTool:(s:Tool)=>void,
+    onDelete: () => void
 }){
       return <div style={{
         position:"fixed",
@@ -58,7 +60,17 @@ function TopBar({selectedTool,setSelectedTool}:{
             <IconButton onClick={()=>{
                 setSelectedTool("circle")
             }} activated={selectedTool==="circle"} icon={<Circle/>} />
+             <IconButton onClick={()=>{
+                setSelectedTool("pencil")
+            }} activated={selectedTool==="pencil"} icon={<Pencil/>} />
+            <IconButton onClick={()=>{
+                setSelectedTool("arrow")
+            }} activated={selectedTool==="arrow"} icon={<ArrowRight/>} />
+            <IconButton 
+                onClick={onDelete} 
+                activated={false} 
+                icon={<Trash2/>} 
+            />
         </div>
       </div>
-
 }
