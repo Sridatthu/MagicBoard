@@ -8,6 +8,7 @@ type Shape =
   | { type: "circle"; id: string; centerX: number; centerY: number; radius: number }
   | { type: "line"; id: string; startX: number; startY: number; endX: number; endY: number }
   | { type: "arrow"; id: string; startX: number; startY: number; endX: number; endY: number }
+  | { type: "text"; id: string; x: number; y: number; content: string; fontSize: number }
   | { type: "pencil"; id: string; points: Point[] };
 
 export class Game {
@@ -29,6 +30,12 @@ export class Game {
   private dragOffsetX: number = 0;
   private dragOffsetY: number = 0;
   private isDragging: boolean = false;
+
+  // Text tool properties
+  private isEditingText: boolean = false;
+  private textInput: HTMLInputElement | null = null;
+  private tempTextX: number = 0;
+  private tempTextY: number = 0;
 
   socket: WebSocket;
 
@@ -79,7 +86,7 @@ export class Game {
           this.existingShapes = this.existingShapes.filter((s) => s.id !== shapeId);
           this.clearCanvas();
         } else if (message.type === "error") {
-          // console.error("Server error:");
+         
         }
       } catch (error) {
         console.error("Failed to process WebSocket message:", error);
@@ -96,6 +103,7 @@ export class Game {
   }
 
   destroy() {
+    this.cancelTextInput();
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
@@ -122,31 +130,143 @@ export class Game {
       y: (y - rect.top - this.offsetY) / this.scale,
     };
   }
-private drawArrow(startX: number, startY: number, endX: number, endY: number) {
-  const headLength = 15 / this.scale; // Arrowhead length (scales with zoom)
-  const angle = Math.atan2(endY - startY, endX - startX);
 
-  // Draw the main line
-  this.ctx.beginPath();
-  this.ctx.moveTo(startX, startY);
-  this.ctx.lineTo(endX, endY);
-  this.ctx.stroke();
+  private drawArrow(startX: number, startY: number, endX: number, endY: number) {
+    const headLength = 15 / this.scale;
+    const angle = Math.atan2(endY - startY, endX - startX);
 
-  // Draw the arrowhead (two lines at 30° angles)
-  this.ctx.beginPath();
-  this.ctx.moveTo(endX, endY);
-  this.ctx.lineTo(
-    endX - headLength * Math.cos(angle - Math.PI / 6),
-    endY - headLength * Math.sin(angle - Math.PI / 6)
-  );
-  this.ctx.moveTo(endX, endY);
-  this.ctx.lineTo(
-    endX - headLength * Math.cos(angle + Math.PI / 6),
-    endY - headLength * Math.sin(angle + Math.PI / 6)
-  );
-  this.ctx.stroke();
-  this.ctx.closePath();
-}
+    // Draw the main line
+    this.ctx.beginPath();
+    this.ctx.moveTo(startX, startY);
+    this.ctx.lineTo(endX, endY);
+    this.ctx.stroke();
+
+    // Draw the arrowhead
+    this.ctx.beginPath();
+    this.ctx.moveTo(endX, endY);
+    this.ctx.lineTo(
+      endX - headLength * Math.cos(angle - Math.PI / 6),
+      endY - headLength * Math.sin(angle - Math.PI / 6)
+    );
+    this.ctx.moveTo(endX, endY);
+    this.ctx.lineTo(
+      endX - headLength * Math.cos(angle + Math.PI / 6),
+      endY - headLength * Math.sin(angle + Math.PI / 6)
+    );
+    this.ctx.stroke();
+    this.ctx.closePath();
+  }
+
+  private createTextInput(x: number, y: number) {
+    // Remove any existing text input
+    if (this.textInput) {
+      this.textInput.remove();
+      this.textInput = null;
+    }
+
+    // Create input element
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Type text...";
+    
+    // Convert canvas coordinates to screen coordinates
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = x * this.scale + this.offsetX + rect.left;
+    const screenY = y * this.scale + this.offsetY + rect.top;
+    
+    // Style the input
+    input.style.position = "fixed";
+    input.style.left = `${screenX}px`;
+    input.style.top = `${screenY}px`;
+    input.style.fontSize = `${Math.max(16 * this.scale, 14)}px`;
+    input.style.padding = "6px 12px";
+    input.style.background = "white";
+    input.style.color = "black";
+    input.style.border = "2px solid #3b82f6";
+    input.style.borderRadius = "4px";
+    input.style.outline = "none";
+    input.style.fontFamily = "Arial, sans-serif";
+    input.style.zIndex = "10000";
+    input.style.minWidth = "200px";
+    input.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+    
+    document.body.appendChild(input);
+    this.textInput = input;
+    this.tempTextX = x;
+    this.tempTextY = y;
+    this.isEditingText = true;
+    
+    // Focus the input
+    setTimeout(() => input.focus(), 10);
+    
+    // Handle keyboard events
+    input.onkeydown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.finishTextInput();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.cancelTextInput();
+      }
+    };
+    
+    // Handle blur (clicking outside)
+    input.onblur = () => {
+      setTimeout(() => {
+        if (this.textInput) {
+          this.finishTextInput();
+        }
+      }, 100);
+    };
+  }
+
+  private finishTextInput() {
+    if (!this.textInput || !this.isEditingText) return;
+    
+    const content = this.textInput.value.trim();
+    
+    if (content.length > 0) {
+      const id = this.generateId();
+      const shape: Shape = {
+        type: "text",
+        id,
+        x: this.tempTextX,
+        y: this.tempTextY,
+        content,
+        fontSize: 16
+      };
+      
+      this.existingShapes.push(shape);
+      
+      try {
+        this.socket.send(
+          JSON.stringify({
+            type: "chat",
+            message: JSON.stringify({ shape }),
+            roomId: this.roomId,
+          })
+        );
+      } catch (error) {
+        console.error("Failed to send text shape:", error);
+        this.existingShapes.pop();
+      }
+      
+      this.clearCanvas();
+    }
+    
+    this.cancelTextInput();
+  }
+
+  private cancelTextInput() {
+    if (this.textInput) {
+      this.textInput.remove();
+      this.textInput = null;
+    }
+    this.isEditingText = false;
+    this.canvas.style.cursor = "crosshair";
+  }
 
   clearCanvas() {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -159,7 +279,6 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
     this.ctx.lineWidth = 2;
 
     this.existingShapes.forEach((shape) => {
-      // Highlight selected shape
       const isSelected = this.selectedShape && this.selectedShape.id === shape.id;
       
       if (isSelected) {
@@ -184,9 +303,21 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (shape.type === "arrow") {
-  this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
-}
- else if (shape.type === "pencil") {
+        this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
+      } else if (shape.type === "text") {
+        this.ctx.font = `${shape.fontSize}px Arial`;
+        this.ctx.fillStyle = isSelected ? "rgba(255,255,0)" : "rgba(255,255,255)";
+        this.ctx.fillText(shape.content, shape.x, shape.y);
+        
+        if (isSelected) {
+          const metrics = this.ctx.measureText(shape.content);
+          const textWidth = metrics.width;
+          const textHeight = shape.fontSize;
+          this.ctx.strokeStyle = "rgba(255,255,0)";
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeRect(shape.x, shape.y - textHeight, textWidth, textHeight + 4);
+        }
+      } else if (shape.type === "pencil") {
         this.ctx.beginPath();
         for (let i = 0; i < shape.points.length - 1; i++) {
           this.ctx.moveTo(shape.points[i].x, shape.points[i].y);
@@ -207,7 +338,16 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
   }
 
   mouseDownHandler = (e: MouseEvent) => {
+    // Ignore clicks while editing text
+    if (this.isEditingText) return;
+
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
+
+    // If text tool is selected, create text input
+    if (this.selectedTool === "text") {
+      this.createTextInput(x, y);
+      return;
+    }
 
     const shape = this.getShapeAt(x, y);
     if (shape) {
@@ -223,14 +363,16 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
       } else if (shape.type === "line") {
         this.dragOffsetX = x - shape.startX;
         this.dragOffsetY = y - shape.startY;
+      } else if (shape.type === "arrow") {
+        this.dragOffsetX = x - shape.startX;
+        this.dragOffsetY = y - shape.startY;
+      } else if (shape.type === "text") {
+        this.dragOffsetX = x - shape.x;
+        this.dragOffsetY = y - shape.y;
       } else if (shape.type === "pencil") {
         this.dragOffsetX = x - shape.points[0].x;
         this.dragOffsetY = y - shape.points[0].y;
-      }else if (shape.type === "arrow") {
-  this.dragOffsetX = x - shape.startX;
-  this.dragOffsetY = y - shape.startY;
-}
-
+      }
       
       this.canvas.style.cursor = "grabbing";
       this.clearCanvas();
@@ -267,16 +409,17 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
         s.startY += offsetY;
         s.endX += offsetX;
         s.endY += offsetY;
-      }else if (s.type === "arrow") {
-  const offsetX = dx - s.startX;
-  const offsetY = dy - s.startY;
-  s.startX += offsetX;
-  s.startY += offsetY;
-  s.endX += offsetX;
-  s.endY += offsetY;
-}
-
-       else if (s.type === "pencil") {
+      } else if (s.type === "arrow") {
+        const offsetX = dx - s.startX;
+        const offsetY = dy - s.startY;
+        s.startX += offsetX;
+        s.startY += offsetY;
+        s.endX += offsetX;
+        s.endY += offsetY;
+      } else if (s.type === "text") {
+        s.x = dx;
+        s.y = dy;
+      } else if (s.type === "pencil") {
         const offsetX = dx - s.points[0].x;
         const offsetY = dy - s.points[0].y;
         s.points.forEach((p) => {
@@ -314,9 +457,8 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
       this.ctx.stroke();
       this.ctx.closePath();
     } else if (this.selectedTool === "arrow") {
-  this.drawArrow(this.startX, this.startY, x, y);
-}
-    else if (this.selectedTool === "pencil") {
+      this.drawArrow(this.startX, this.startY, x, y);
+    } else if (this.selectedTool === "pencil") {
       this.currentPath.push({ x, y });
       this.ctx.beginPath();
       for (let i = 0; i < this.currentPath.length - 1; i++) {
@@ -375,11 +517,9 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
       };
     } else if (this.selectedTool === "line") {
       shape = { type: "line", id, startX: this.startX, startY: this.startY, endX: x, endY: y };
-    }else if (this.selectedTool === "arrow") {
-  shape = { type: "arrow", id, startX: this.startX, startY: this.startY, endX: x, endY: y };
-}
- 
-    else if (this.selectedTool === "pencil") {
+    } else if (this.selectedTool === "arrow") {
+      shape = { type: "arrow", id, startX: this.startX, startY: this.startY, endX: x, endY: y };
+    } else if (this.selectedTool === "pencil") {
       if (this.currentPath.length > 1) {
         shape = { type: "pencil", id, points: this.currentPath };
       }
@@ -409,7 +549,6 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
     this.clearCanvas();
   };
 
-  // NEW: Double-click to delete
   doubleClickHandler = (e: MouseEvent) => {
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
     const shape = this.getShapeAt(x, y);
@@ -419,7 +558,6 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
     }
   };
 
-  // NEW: Keyboard handler for Delete/Backspace
   keyDownHandler = (e: KeyboardEvent) => {
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
@@ -443,51 +581,66 @@ private drawArrow(startX: number, startY: number, endX: number, endY: number) {
   };
 
   private getShapeAt(x: number, y: number): Shape | null {
-  for (let i = this.existingShapes.length - 1; i >= 0; i--) {
-    const s = this.existingShapes[i];
-    
-    if (s.type === "rect") {
-      const minX = Math.min(s.x, s.x + s.width);
-      const maxX = Math.max(s.x, s.x + s.width);
-      const minY = Math.min(s.y, s.y + s.height);
-      const maxY = Math.max(s.y, s.y + s.height);
-      if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s;
-    }
-    
-    if (s.type === "circle") {
-      if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
-    }
-    
-    if (s.type === "line") {
-      const tolerance = 5 / this.scale;
-      const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
-      if (dist <= tolerance) return s;
-    }
-    
-    if (s.type === "arrow") {
-      const tolerance = 5 / this.scale;
-      const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
-      if (dist <= tolerance) return s;
-    }
-    
-    if (s.type === "pencil") {
-      const tolerance = 5 / this.scale;
-      for (let j = 0; j < s.points.length - 1; j++) {
-        const dist = this.pointToLineDistance(
-          x,
-          y,
-          s.points[j].x,
-          s.points[j].y,
-          s.points[j + 1].x,
-          s.points[j + 1].y
-        );
+    for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+      const s = this.existingShapes[i];
+      
+      if (s.type === "rect") {
+        const minX = Math.min(s.x, s.x + s.width);
+        const maxX = Math.max(s.x, s.x + s.width);
+        const minY = Math.min(s.y, s.y + s.height);
+        const maxY = Math.max(s.y, s.y + s.height);
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s;
+      }
+      
+      if (s.type === "circle") {
+        if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
+      }
+      
+      if (s.type === "line") {
+        const tolerance = 5 / this.scale;
+        const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
         if (dist <= tolerance) return s;
       }
+      
+      if (s.type === "arrow") {
+        const tolerance = 5 / this.scale;
+        const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
+        if (dist <= tolerance) return s;
+      }
+      
+      if (s.type === "text") {
+        this.ctx.font = `${s.fontSize}px Arial`;
+        const metrics = this.ctx.measureText(s.content);
+        const textWidth = metrics.width;
+        const textHeight = s.fontSize;
+        
+        if (
+          x >= s.x &&
+          x <= s.x + textWidth &&
+          y >= s.y - textHeight &&
+          y <= s.y + 4
+        ) {
+          return s;
+        }
+      }
+      
+      if (s.type === "pencil") {
+        const tolerance = 5 / this.scale;
+        for (let j = 0; j < s.points.length - 1; j++) {
+          const dist = this.pointToLineDistance(
+            x,
+            y,
+            s.points[j].x,
+            s.points[j].y,
+            s.points[j + 1].x,
+            s.points[j + 1].y
+          );
+          if (dist <= tolerance) return s;
+        }
+      }
     }
+    return null;
   }
-  return null;
-}
-
 
   private pointToLineDistance(
     px: number,

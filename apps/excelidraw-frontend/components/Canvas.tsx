@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { IconButton } from "./IconButoon";
-import { ArrowRight, Circle, Minus, Pencil, RectangleHorizontalIcon, Trash2 } from "lucide-react";
+import { ArrowRight, Circle, Minus, Pencil, RectangleHorizontalIcon, Text, Trash2, TypeOutline } from "lucide-react";
 import { Game } from "@/draw/Game";
 
-export type Tool="circle"|"rect"|"line"|"arrow"|"pencil"|"select";
+export type Tool = "circle" | "rect" | "line" | "arrow" | "text" | "pencil" | "select";
+
 
 export function Canvas({
     roomId,socket
@@ -66,6 +67,9 @@ function TopBar({selectedTool,setSelectedTool, onDelete}:{
             <IconButton onClick={()=>{
                 setSelectedTool("arrow")
             }} activated={selectedTool==="arrow"} icon={<ArrowRight/>} />
+             <IconButton onClick={()=>{
+                setSelectedTool("text")
+            }} activated={selectedTool==="text"} icon={<TypeOutline/>} />
             <IconButton 
                 onClick={onDelete} 
                 activated={false} 
