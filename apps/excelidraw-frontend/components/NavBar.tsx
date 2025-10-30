@@ -1,24 +1,20 @@
 import Link from 'next/link'
 import React from 'react'
+import { AnimatedThemeToggler } from './ui/animated-theme-toggler'
 
 const NavBar = () => {
   return (
-    <div className="flex justify-evenly w-full p-4">
-        <div className="flex justify-between gap-8">
-          <div>
-            LOGO
-          </div>
-         <li>Features</li>
-         <li>How it Works</li>
-         <li>Pricing</li>
-         <li>canvas</li>
-        </div>
-        <div className="flex justify-between gap-6">
-         <Link className="rounded bg-blue-700 px-6 py-2" href={"/signin"}>Sign In</Link>
-         <Link className="rounded bg-blue-100 px-6 py-2 text-blue-800" href={"/signup"}>Sign Up</Link>
-        </div>
+    <div className='fixed top-0 z-20 w-full'>
+      <div className='max-w-6xl h-16 mx-auto flex items-center justify-between'>
+      <div>  <Link className='font-bold text-lg' href={"/"}>Magical Draw</Link></div>
+      <div className='flex justify-between items-center gap-4'>  
+        <AnimatedThemeToggler />
+         <Link className='font-medium text-lg' href={"/about"}>About</Link>
+        <Link className='font-medium text-lg' href={"/signin"}>Sign In</Link>
+         <Link className='font-medium text-lg' href={"/signup"}>Sign Up</Link>
       </div>
-
+      </div>
+    </div>
   )
 }
 

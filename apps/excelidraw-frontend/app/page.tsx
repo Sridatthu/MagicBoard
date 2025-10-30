@@ -1,12 +1,15 @@
 import Hero from "@/components/hero/Hero";
+import NavBar from "@/components/NavBar";
+import { ScrollBasedVelocityDemo } from "@/components/ScrollBasedVelocityDemo";
 
 
 function App() {
    
   return (
     <div className="">
-      
- <Hero />
+      <NavBar/>
+       <Hero />
+       <ScrollBasedVelocityDemo />
 
     </div>
   );

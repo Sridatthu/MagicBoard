@@ -1,5 +1,13 @@
-import { AuthPage } from "@/components/AuthPage";
+import { Login } from '@/components/AuthPage'
+import React from 'react'
 
-export default function SignUp(){
-    return <AuthPage isSignin={false} />
+const page = () => {
+  return (
+   <div className='h-screen flex justify-center items-center'>
+        <Login isSignin={false} />
+      </div>
+     )
+  
 }
+
+export default page

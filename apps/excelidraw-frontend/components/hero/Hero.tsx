@@ -7,7 +7,10 @@ import { ShimmerButton } from "../ui/shimmer-button";
 import { AnimatedGradientText } from "../ui/animated-gradient-text";
 import { ChevronRight, MoveUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 const Hero = () => {
+  const {theme}=useTheme();
+  console.log(theme)
   return (
     <div className="relative h-screen">
       <div className="absolute top-0 w-full h-screen z-10 flex items-center justify-center flex-col space-y-8">
@@ -45,7 +48,7 @@ const Hero = () => {
           <ChevronRight className="ml-1 size-4 stroke-neutral-500 transition-transform duration-300 ease-in-out group-hover:translate-x-0.5" />
         </motion.div>
         <GradualSpacingText
-          className="text-2xl md:text-4xl font-mono"
+          className="text-2xl md:text-4xl font-mono text-shadow-xs"
           text="Magical Draw is Simple"
         />
         <motion.p 
@@ -60,7 +63,7 @@ const Hero = () => {
           transition={{
             delay: 0.5,
           }} className="text-center font-sans">
-             unleash your creative with our intuitive whiteboard tool.<br></br>Sketch,brainstorm,and collaborate in real-time with your team,no matter<br></br> where are you.
+             unleash your creative with our intuitive whiteboard tool.<br></br>Sketch, brainstorm and collaborate in real-time with your team,no matter<br></br> where you are.
         </motion.p>
         <motion.div
           initial={{
@@ -83,7 +86,7 @@ const Hero = () => {
           </ShimmerButton>
         </motion.div>
       </div>
-      <ParticlesDemo />
+      <ParticlesDemo key={theme}/>
     </div>
   );
 };
