@@ -1,0 +1,25 @@
+"use client"
+import React, { useEffect, useState } from 'react'
+import { HTTP_BACKEND } from '@/config'
+import axios from 'axios'
+
+const getRooms = async () => {
+  const response = await axios.get(`${HTTP_BACKEND}/rooms`)
+  return response.data.rooms
+}
+
+const Rooms = () => {
+  const [rooms, setRooms] = useState([])
+
+  useEffect(() => {
+    getRooms().then(setRooms)
+  }, [])
+
+  return (
+    <div>
+      Rooms: {JSON.stringify(rooms)}
+    </div>
+  )
+}
+
+export default Rooms

@@ -9,6 +9,7 @@ export function ParticlesDemo() {
   const [color, setColor] = useState("#ffffff")
 
   useEffect(() => {
+    console.log(resolvedTheme)
     setColor(resolvedTheme === "dark" ? "#ffffff" : "#000000")
   }, [resolvedTheme])
 

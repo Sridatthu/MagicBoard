@@ -97,8 +97,6 @@ app.post("/room",middleware,async(req,res)=>{
 
 })
 
-
-
 app.get("/chats/:roomId",async(req,res)=>{
    try {
      const roomId=Number(req.params.roomId);
@@ -131,4 +129,17 @@ app.get("/room/:slug",async(req,res)=>{
         room
     })
 })
+
+app.get("/rooms",middleware,async(req,res)=>{
+    // @ts-ignore
+    const adminId=req.userId;
+    const rooms=await prismaClient.room.findMany({
+        where:{
+           adminId
+        }})
+    res.json({
+        rooms
+    })
+})
+
 app.listen(3001)

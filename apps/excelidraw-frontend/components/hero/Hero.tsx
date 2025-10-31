@@ -1,16 +1,18 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { ParticlesDemo } from "./HeroParticle";
 import { GradualSpacingText } from "../ui/gradual-spacing-text";
 import { ShimmerButton } from "../ui/shimmer-button";
 import { AnimatedGradientText } from "../ui/animated-gradient-text";
 import { ChevronRight, MoveUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
+import Link from "next/link";
+import { ParticlesDemo } from "./HeroParticle";
+
 const Hero = () => {
-  const {theme}=useTheme();
-  console.log(theme)
+  const {resolvedTheme}=useTheme();
+  console.log(resolvedTheme)
   return (
     <div className="relative h-screen">
       <div className="absolute top-0 w-full h-screen z-10 flex items-center justify-center flex-col space-y-8">
@@ -78,15 +80,15 @@ const Hero = () => {
             delay: 0.5,
           }}
         >
-          <ShimmerButton className="shadow-2xl gap-2">
+         <Link href={"/joinroom"}> <ShimmerButton className="shadow-2xl gap-2">
             <span className="text-center text-sm leading-none font-medium tracking-tight whitespace-pre-wrap text-white lg:text-lg dark:from-white dark:to-slate-900/10">
               Get Started
             </span>
             <MoveUpRight className="dark:text-white" />
-          </ShimmerButton>
+          </ShimmerButton></Link>
         </motion.div>
       </div>
-      <ParticlesDemo key={theme}/>
+      <ParticlesDemo key={resolvedTheme}/>
     </div>
   );
 };
