@@ -87,7 +87,8 @@ app.post("/room",middleware,async(req,res)=>{
     })
 
     res.json({
-        roomId:room.id
+        roomId:room.id,
+        roomname:room.slug
     })
   } catch (error) {
     res.json({
@@ -119,15 +120,21 @@ app.get("/chats/:roomId",async(req,res)=>{
    }
 })
 
-app.get("/room/:slug",async(req,res)=>{
+app.get("/room/:slug",middleware,async(req,res)=>{
     const slug=req.params.slug;
-    const room=await prismaClient.room.findFirst({
+  try {
+      const room=await prismaClient.room.findFirst({
         where:{
             slug
         }})
     res.json({
-        room
+        roomId:room?.id
     })
+  } catch (error) {
+    res.json({
+        message:`no room found with this ${slug} room`
+    })
+  }
 })
 
 app.get("/rooms",middleware,async(req,res)=>{

@@ -6,9 +6,18 @@ import { Canvas } from "./Canvas";
 export function RoomCanvas({roomId}:{roomId:string}){
 
     const [socket,setSocket]=useState<WebSocket |null>(null);
-
+    const [token, setToken] = useState<string | null>(null);
+    const [loading,setLoading]=useState<boolean>(true);
     useEffect(()=>{
-        const ws=new WebSocket(`${WS_URL}?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwZmU2MDkwMy05YmQzLTRiMzAtOWFhYS1iN2M5MDc4NTZjYjgiLCJpYXQiOjE3NjA5NTYyNzd9.zq1UuZXdqYnSMc9C0GAtQHGGHgRkGm0dL0fdybhiZTU`)
+        setToken(localStorage.getItem("token"))
+        setLoading(false)
+    },[])
+    useEffect(()=>{
+        
+        if(!token){
+            return
+        }
+        const ws=new WebSocket(`${WS_URL}?token=${token}`)
         ws.onopen=()=>{
             setSocket(ws);
             const data=JSON.stringify({
@@ -17,13 +26,22 @@ export function RoomCanvas({roomId}:{roomId:string}){
             })
             ws.send(data)
         }
-    })
-
+    },[roomId,token])
+if (loading) {
+    return <div>Loading...</div>;
+  }
+if(!token){
+        return  <div>please login to access this room</div>
+    }
+    
     if(!socket){
         return <div>
            connecting to server..
         </div>
     }
+   
+     
+    
     return  <Canvas roomId={roomId} socket={socket}/>
 
 }
