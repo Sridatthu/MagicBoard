@@ -32,7 +32,7 @@ async function handleSignin(){
 const  username=emailRef.current?.value?.trim();
   const  password=passwordRef.current?.value?.trim();
   const name=nameRef.current?.value?.trim();
-  console.log(username)
+
 
 if (!username || !password || (!isSignin && !name)) {
   alert("Please fill all required fields");

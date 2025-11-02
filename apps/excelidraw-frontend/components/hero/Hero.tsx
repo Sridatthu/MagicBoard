@@ -12,7 +12,6 @@ import { ParticlesDemo } from "./HeroParticle";
 
 const Hero = () => {
   const {resolvedTheme}=useTheme();
-  console.log(resolvedTheme)
   return (
     <div className="relative h-screen">
       <div className="absolute top-0 w-full h-screen z-10 flex items-center justify-center flex-col space-y-8">

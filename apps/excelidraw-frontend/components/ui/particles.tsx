@@ -206,6 +206,7 @@ export const Particles: React.FC<ParticlesProps> = ({
   const drawCircle = (circle: Circle, update = false) => {
     if (context.current) {
       const { x, y, translateX, translateY, size, alpha } = circle
+       const rgb = hexToRgb(color)
       context.current.translate(translateX, translateY)
       context.current.beginPath()
       context.current.arc(x, y, size, 0, 2 * Math.PI)

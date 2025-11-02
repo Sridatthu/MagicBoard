@@ -9,7 +9,7 @@ export function ParticlesDemo() {
   const [color, setColor] = useState("#ffffff")
 
   useEffect(() => {
-    console.log(resolvedTheme)
+
     setColor(resolvedTheme === "dark" ? "#ffffff" : "#000000")
   }, [resolvedTheme])
 
@@ -17,6 +17,7 @@ export function ParticlesDemo() {
     <div className="bg-background relative flex h-screen w-full flex-col items-center justify-center overflow-hidden rounded-lg border">
      
       <Particles
+      key={color}
         className="absolute inset-0 z-0"
         quantity={100}
         ease={80}
