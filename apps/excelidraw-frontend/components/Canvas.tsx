@@ -122,7 +122,7 @@ function TopBar({
 
   return (
     <div
-      className="fixed top-4 left-4 z-10 flex gap-2 backdrop-blur-md rounded-xl p-2 shadow-md border transition-colors duration-300"
+      className="fixed top-4 left-110 z-10 flex gap-2 backdrop-blur-md rounded-xl p-2 shadow-md border transition-colors duration-300"
       style={{
         backgroundColor: isDark
           ? "rgba(38, 38, 38, 0.6)"

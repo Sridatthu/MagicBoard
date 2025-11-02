@@ -1,3 +1,4 @@
+
 import { Tool, Theme, themes, ThemeColors } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
 
@@ -10,6 +11,8 @@ type Shape =
   | { type: "arrow"; id: string; startX: number; startY: number; endX: number; endY: number }
   | { type: "text"; id: string; x: number; y: number; content: string; fontSize: number }
   | { type: "pencil"; id: string; points: Point[] };
+
+type ResizeHandle = "tl" | "tr" | "bl" | "br" | "none";
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -31,15 +34,19 @@ export class Game {
   private dragOffsetY: number = 0;
   private isDragging: boolean = false;
 
-  // Theme properties
+  private isResizing: boolean = false;
+  private resizeHandle: ResizeHandle = "none";
+  private resizeStartX: number = 0;
+  private resizeStartY: number = 0;
+
   private theme: Theme = "dark";
   private colors: ThemeColors;
 
-  // Text tool properties
   private isEditingText: boolean = false;
   private textInput: HTMLInputElement | null = null;
   private tempTextX: number = 0;
   private tempTextY: number = 0;
+  private liveTextContent: string = "";
 
   socket: WebSocket;
 
@@ -72,9 +79,6 @@ export class Game {
     }
   }
 
-  /**
-   * Update the theme and re-render the canvas
-   */
   setTheme(theme: Theme) {
     this.theme = theme;
     this.colors = themes[theme];
@@ -105,8 +109,6 @@ export class Game {
           const shapeId = message.shapeId;
           this.existingShapes = this.existingShapes.filter((s) => s.id !== shapeId);
           this.clearCanvas();
-        } else if (message.type === "error") {
-          console.error("Error message from server:", message);
         }
       } catch (error) {
         console.error("Failed to process WebSocket message:", error);
@@ -136,6 +138,7 @@ export class Game {
     this.selectedTool = tool;
     this.selectedShape = null;
     this.isDragging = false;
+    this.isResizing = false;
     this.clearCanvas();
   }
 
@@ -155,13 +158,11 @@ export class Game {
     const headLength = 15 / this.scale;
     const angle = Math.atan2(endY - startY, endX - startX);
 
-    // Draw the main line
     this.ctx.beginPath();
     this.ctx.moveTo(startX, startY);
     this.ctx.lineTo(endX, endY);
     this.ctx.stroke();
 
-    // Draw the arrowhead
     this.ctx.beginPath();
     this.ctx.moveTo(endX, endY);
     this.ctx.lineTo(
@@ -177,34 +178,92 @@ export class Game {
     this.ctx.closePath();
   }
 
+  private drawResizeHandles(shape: Shape) {
+    const handleSize = 10 / this.scale;
+    let x, y, width, height;
+
+    if (shape.type === "rect") {
+      x = shape.x;
+      y = shape.y;
+      width = shape.width;
+      height = shape.height;
+    } else if (shape.type === "circle") {
+      x = shape.centerX - shape.radius;
+      y = shape.centerY - shape.radius;
+      width = shape.radius * 2;
+      height = shape.radius * 2;
+    } else {
+      return;
+    }
+
+    const handles = [
+      { x: x, y: y },
+      { x: x + width, y: y },
+      { x: x, y: y + height },
+      { x: x + width, y: y + height },
+    ];
+
+    this.ctx.fillStyle = this.colors.selected;
+    handles.forEach(h => {
+      this.ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize);
+    });
+  }
+
+  private getResizeHandleAt(x: number, y: number, shape: Shape): ResizeHandle {
+    if (shape.type !== "rect" && shape.type !== "circle") return "none";
+
+    let rectX, rectY, rectWidth, rectHeight;
+
+    if (shape.type === "rect") {
+      rectX = shape.x;
+      rectY = shape.y;
+      rectWidth = shape.width;
+      rectHeight = shape.height;
+    } else {
+      rectX = shape.centerX - shape.radius;
+      rectY = shape.centerY - shape.radius;
+      rectWidth = shape.radius * 2;
+      rectHeight = shape.radius * 2;
+    }
+
+    const tolerance = 30 / this.scale;
+
+    const tl = Math.abs(x - rectX) < tolerance && Math.abs(y - rectY) < tolerance;
+    const tr = Math.abs(x - (rectX + rectWidth)) < tolerance && Math.abs(y - rectY) < tolerance;
+    const bl = Math.abs(x - rectX) < tolerance && Math.abs(y - (rectY + rectHeight)) < tolerance;
+    const br = Math.abs(x - (rectX + rectWidth)) < tolerance && Math.abs(y - (rectY + rectHeight)) < tolerance;
+
+    if (tl) return "tl";
+    if (tr) return "tr";
+    if (bl) return "bl";
+    if (br) return "br";
+
+    return "none";
+  }
+
   private createTextInput(x: number, y: number) {
-    // Remove any existing text input
     if (this.textInput) {
       this.textInput.remove();
       this.textInput = null;
     }
 
-    // Create input element
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Type text...";
 
-    // Convert canvas coordinates to screen coordinates
     const rect = this.canvas.getBoundingClientRect();
     const screenX = x * this.scale + this.offsetX + rect.left;
     const screenY = y * this.scale + this.offsetY + rect.top;
 
-    // Determine colors based on theme
     const isDark = this.theme === "dark";
     const bgColor = isDark ? "#1f2937" : "#ffffff";
     const textColor = isDark ? "#f9fafb" : "#111827";
     const borderColor = isDark ? "#60a5fa" : "#3b82f6";
 
-    // Style the input with visible box
     input.style.position = "fixed";
     input.style.left = `${screenX}px`;
     input.style.top = `${screenY}px`;
-    input.style.fontSize = `${Math.max(16 * this.scale, 14)}px`;
+    input.style.fontSize = `14px`;
     input.style.padding = "8px 12px";
     input.style.background = bgColor;
     input.style.color = textColor;
@@ -222,11 +281,15 @@ export class Game {
     this.tempTextX = x;
     this.tempTextY = y;
     this.isEditingText = true;
+    this.liveTextContent = "";
 
-    // Focus the input
+    input.oninput = (e) => {
+      this.liveTextContent = (e.target as HTMLInputElement).value;
+      this.clearCanvas();
+    };
+
     setTimeout(() => input.focus(), 10);
 
-    // Handle keyboard events
     input.onkeydown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -239,7 +302,6 @@ export class Game {
       }
     };
 
-    // Handle blur (clicking outside)
     input.onblur = () => {
       setTimeout(() => {
         if (this.textInput) {
@@ -292,29 +354,22 @@ export class Game {
       this.textInput = null;
     }
     this.isEditingText = false;
+    this.liveTextContent = "";
     this.canvas.style.cursor = "crosshair";
   }
 
-  /**
-   * Clear canvas and apply theme-based background
-   */
   clearCanvas() {
-    // Reset transform first
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Apply theme background color
     this.ctx.fillStyle = this.colors.background;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Apply transform for zooming and panning
     this.applyTransform();
 
-    // Set default theme colors
     this.ctx.strokeStyle = this.colors.stroke;
     this.ctx.lineWidth = 2;
 
-    // Render all shapes
     this.existingShapes.forEach((shape) => {
       const isSelected = this.selectedShape && this.selectedShape.id === shape.id;
 
@@ -363,9 +418,18 @@ export class Game {
         this.ctx.stroke();
         this.ctx.closePath();
       }
+
+      if (isSelected && (shape.type === "rect" || shape.type === "circle")) {
+        this.drawResizeHandles(shape);
+      }
     });
 
-    // Reset styles
+    if (this.isEditingText && this.liveTextContent.length > 0) {
+      this.ctx.font = `500 16px Arial`;
+      this.ctx.fillStyle = this.colors.text;
+      this.ctx.fillText(this.liveTextContent, this.tempTextX, this.tempTextY);
+    }
+
     this.ctx.strokeStyle = this.colors.stroke;
     this.ctx.lineWidth = 2;
   }
@@ -375,23 +439,32 @@ export class Game {
   }
 
   mouseDownHandler = (e: MouseEvent) => {
-    // Ignore clicks while editing text
     if (this.isEditingText) return;
 
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
 
-    // If text tool is selected, create text input
     if (this.selectedTool === "text") {
       this.createTextInput(x, y);
       return;
     }
 
-    // ONLY if select tool is active, allow shape selection and dragging
     if (this.selectedTool === "select") {
       const shape = this.getShapeAt(x, y);
 
       if (shape) {
         this.selectedShape = shape;
+        const handle = this.getResizeHandleAt(x, y, shape);
+
+        if (handle !== "none") {
+          this.isResizing = true;
+          this.resizeHandle = handle;
+          this.resizeStartX = x;
+          this.resizeStartY = y;
+          this.canvas.style.cursor = this.getResizeCursor(handle);
+          this.clearCanvas();
+          return;
+        }
+
         this.isDragging = true;
 
         if (shape.type === "rect") {
@@ -420,7 +493,6 @@ export class Game {
       }
     }
 
-    // ONLY if NOT select tool, start drawing
     if (this.selectedTool !== "select") {
       this.clicked = true;
       this.startX = x;
@@ -432,10 +504,66 @@ export class Game {
     }
   };
 
+  private getResizeCursor(handle: ResizeHandle): string {
+    switch (handle) {
+      case "tl": return "nwse-resize";
+      case "tr": return "nesw-resize";
+      case "bl": return "nesw-resize";
+      case "br": return "nwse-resize";
+      default: return "default";
+    }
+  }
+
   mouseMoveHandler = (e: MouseEvent) => {
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
 
-    // Handle dragging
+    if (this.selectedShape && this.isResizing) {
+      const s = this.selectedShape;
+
+      if (s.type === "rect") {
+        const dx = x - this.resizeStartX;
+        const dy = y - this.resizeStartY;
+
+        if (this.resizeHandle === "br") {
+          s.width = Math.max(20, s.width + dx);
+          s.height = Math.max(20, s.height + dy);
+          this.resizeStartX = x;
+          this.resizeStartY = y;
+        } else if (this.resizeHandle === "tl") {
+          const newWidth = Math.max(20, s.width - dx);
+          const newHeight = Math.max(20, s.height - dy);
+          s.x += s.width - newWidth;
+          s.y += s.height - newHeight;
+          s.width = newWidth;
+          s.height = newHeight;
+          this.resizeStartX = x;
+          this.resizeStartY = y;
+        } else if (this.resizeHandle === "tr") {
+          const newWidth = Math.max(20, s.width + dx);
+          const newHeight = Math.max(20, s.height - dy);
+          s.y += s.height - newHeight;
+          s.width = newWidth;
+          s.height = newHeight;
+          this.resizeStartX = x;
+          this.resizeStartY = y;
+        } else if (this.resizeHandle === "bl") {
+          const newWidth = Math.max(20, s.width - dx);
+          const newHeight = Math.max(20, s.height + dy);
+          s.x += s.width - newWidth;
+          s.width = newWidth;
+          s.height = newHeight;
+          this.resizeStartX = x;
+          this.resizeStartY = y;
+        }
+      } else if (s.type === "circle") {
+        const dist = Math.sqrt((x - s.centerX) * (x - s.centerX) + (y - s.centerY) * (y - s.centerY));
+        s.radius = Math.max(10, dist);
+      }
+
+      this.clearCanvas();
+      return;
+    }
+
     if (this.selectedShape && this.isDragging) {
       const dx = x - this.dragOffsetX;
       const dy = y - this.dragOffsetY;
@@ -477,22 +605,27 @@ export class Game {
       return;
     }
 
-    // Hover effect ONLY for select tool
     if (this.selectedTool === "select") {
+      if (this.selectedShape) {
+        const handle = this.getResizeHandleAt(x, y, this.selectedShape);
+        if (handle !== "none") {
+          this.canvas.style.cursor = this.getResizeCursor(handle);
+          return;
+        }
+      }
+
       const hoveredShape = this.getShapeAt(x, y);
       this.canvas.style.cursor = hoveredShape ? "grab" : "crosshair";
     } else {
       this.canvas.style.cursor = "crosshair";
     }
 
-    // Handle drawing preview
     if (!this.clicked) return;
 
     const width = x - this.startX;
     const height = y - this.startY;
     this.clearCanvas();
 
-    // Use theme stroke color for preview
     this.ctx.strokeStyle = this.colors.stroke;
 
     if (this.selectedTool === "rect") {
@@ -525,9 +658,27 @@ export class Game {
 
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
-    this.canvas.style.cursor = "crosshair";
 
-    // Handle shape update from dragging
+    if (this.selectedShape && this.isResizing) {
+      this.isResizing = false;
+      this.resizeHandle = "none";
+
+      try {
+        this.socket.send(
+          JSON.stringify({
+            type: "update",
+            message: JSON.stringify({ shape: this.selectedShape }),
+            roomId: this.roomId,
+          })
+        );
+      } catch (error) {
+        console.error("Failed to send shape update:", error);
+      }
+
+      this.clearCanvas();
+      return;
+    }
+
     if (this.selectedShape && this.isDragging) {
       try {
         this.socket.send(
@@ -542,12 +693,13 @@ export class Game {
       }
 
       this.isDragging = false;
+      this.canvas.style.cursor = "crosshair";
       return;
     }
 
-    // Only create shapes if NOT select tool
     if (this.selectedTool === "select") {
       this.currentPath = [];
+      this.canvas.style.cursor = "crosshair";
       return;
     }
 
@@ -610,7 +762,6 @@ export class Game {
   };
 
   doubleClickHandler = (e: MouseEvent) => {
-    // Only delete if select tool is active
     if (this.selectedTool !== "select") return;
 
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
@@ -656,7 +807,10 @@ export class Game {
       }
 
       if (s.type === "circle") {
-        if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
+        // ✅ FIXED: Added tolerance to make big circles easier to select
+        const tolerance = 15 / this.scale;  // Tolerance for click detection
+        const distance = Math.hypot(x - s.centerX, y - s.centerY);
+        if (distance <= s.radius + tolerance) return s;  // Can click within tolerance of circle
       }
 
       if (s.type === "line") {
@@ -672,7 +826,7 @@ export class Game {
       }
 
       if (s.type === "text") {
-        this.ctx.font = `500 ${s.fontSize}px Arial`;
+        this.ctx.font = `500 16px Arial`;
         const metrics = this.ctx.measureText(s.content);
         const textWidth = metrics.width;
         const textHeight = s.fontSize;
@@ -762,6 +916,7 @@ export class Game {
 
       this.selectedShape = null;
       this.isDragging = false;
+      this.isResizing = false;
       this.clearCanvas();
     }
   }
