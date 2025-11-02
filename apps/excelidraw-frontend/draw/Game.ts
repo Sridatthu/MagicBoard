@@ -1,4 +1,3 @@
-
 import { Tool, Theme, themes, ThemeColors } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
 
@@ -20,7 +19,7 @@ export class Game {
   private clicked: boolean = false;
   private startX = 0;
   private startY = 0;
-  private selectedTool: Tool = "circle";
+  private selectedTool: Tool = "select";
   private currentPath: Point[] = [];
 
   private scale: number = 1;
@@ -201,21 +200,22 @@ export class Game {
     const textColor = isDark ? "#f9fafb" : "#111827";
     const borderColor = isDark ? "#60a5fa" : "#3b82f6";
 
-    // Style the input
+    // Style the input with visible box
     input.style.position = "fixed";
     input.style.left = `${screenX}px`;
     input.style.top = `${screenY}px`;
     input.style.fontSize = `${Math.max(16 * this.scale, 14)}px`;
-    input.style.padding = "6px 12px";
+    input.style.padding = "8px 12px";
     input.style.background = bgColor;
     input.style.color = textColor;
-    input.style.border = `2px solid ${borderColor}`;
-    input.style.borderRadius = "4px";
+    input.style.border = `3px solid ${borderColor}`;
+    input.style.borderRadius = "6px";
     input.style.outline = "none";
     input.style.fontFamily = "Arial, sans-serif";
     input.style.zIndex = "10000";
     input.style.minWidth = "200px";
-    input.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+    input.style.boxShadow = `0 0 0 2px ${borderColor}40, 0 4px 12px rgba(0,0,0,0.4)`;
+    input.style.fontWeight = "500";
 
     document.body.appendChild(input);
     this.textInput = input;
@@ -342,7 +342,7 @@ export class Game {
       } else if (shape.type === "arrow") {
         this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
       } else if (shape.type === "text") {
-        this.ctx.font = `${shape.fontSize}px Arial`;
+        this.ctx.font = `500 ${shape.fontSize}px Arial`;
         this.ctx.fillStyle = isSelected ? this.colors.selected : this.colors.text;
         this.ctx.fillText(shape.content, shape.x, shape.y);
 
@@ -352,7 +352,7 @@ export class Game {
           const textHeight = shape.fontSize;
           this.ctx.strokeStyle = this.colors.selected;
           this.ctx.lineWidth = 2;
-          this.ctx.strokeRect(shape.x, shape.y - textHeight, textWidth, textHeight + 4);
+          this.ctx.strokeRect(shape.x - 4, shape.y - textHeight - 2, textWidth + 8, textHeight + 4);
         }
       } else if (shape.type === "pencil") {
         this.ctx.beginPath();
@@ -386,48 +386,56 @@ export class Game {
       return;
     }
 
-    const shape = this.getShapeAt(x, y);
-    if (shape) {
-      this.selectedShape = shape;
-      this.isDragging = true;
+    // ONLY if select tool is active, allow shape selection and dragging
+    if (this.selectedTool === "select") {
+      const shape = this.getShapeAt(x, y);
 
-      if (shape.type === "rect") {
-        this.dragOffsetX = x - shape.x;
-        this.dragOffsetY = y - shape.y;
-      } else if (shape.type === "circle") {
-        this.dragOffsetX = x - shape.centerX;
-        this.dragOffsetY = y - shape.centerY;
-      } else if (shape.type === "line") {
-        this.dragOffsetX = x - shape.startX;
-        this.dragOffsetY = y - shape.startY;
-      } else if (shape.type === "arrow") {
-        this.dragOffsetX = x - shape.startX;
-        this.dragOffsetY = y - shape.startY;
-      } else if (shape.type === "text") {
-        this.dragOffsetX = x - shape.x;
-        this.dragOffsetY = y - shape.y;
-      } else if (shape.type === "pencil") {
-        this.dragOffsetX = x - shape.points[0].x;
-        this.dragOffsetY = y - shape.points[0].y;
+      if (shape) {
+        this.selectedShape = shape;
+        this.isDragging = true;
+
+        if (shape.type === "rect") {
+          this.dragOffsetX = x - shape.x;
+          this.dragOffsetY = y - shape.y;
+        } else if (shape.type === "circle") {
+          this.dragOffsetX = x - shape.centerX;
+          this.dragOffsetY = y - shape.centerY;
+        } else if (shape.type === "line") {
+          this.dragOffsetX = x - shape.startX;
+          this.dragOffsetY = y - shape.startY;
+        } else if (shape.type === "arrow") {
+          this.dragOffsetX = x - shape.startX;
+          this.dragOffsetY = y - shape.startY;
+        } else if (shape.type === "text") {
+          this.dragOffsetX = x - shape.x;
+          this.dragOffsetY = y - shape.y;
+        } else if (shape.type === "pencil") {
+          this.dragOffsetX = x - shape.points[0].x;
+          this.dragOffsetY = y - shape.points[0].y;
+        }
+
+        this.canvas.style.cursor = "grabbing";
+        this.clearCanvas();
+        return;
       }
-
-      this.canvas.style.cursor = "grabbing";
-      this.clearCanvas();
-      return;
     }
 
-    this.clicked = true;
-    this.startX = x;
-    this.startY = y;
+    // ONLY if NOT select tool, start drawing
+    if (this.selectedTool !== "select") {
+      this.clicked = true;
+      this.startX = x;
+      this.startY = y;
 
-    if (this.selectedTool === "pencil") {
-      this.currentPath = [{ x, y }];
+      if (this.selectedTool === "pencil") {
+        this.currentPath = [{ x, y }];
+      }
     }
   };
 
   mouseMoveHandler = (e: MouseEvent) => {
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
 
+    // Handle dragging
     if (this.selectedShape && this.isDragging) {
       const dx = x - this.dragOffsetX;
       const dy = y - this.dragOffsetY;
@@ -469,9 +477,15 @@ export class Game {
       return;
     }
 
-    const hoveredShape = this.getShapeAt(x, y);
-    this.canvas.style.cursor = hoveredShape ? "grab" : "crosshair";
+    // Hover effect ONLY for select tool
+    if (this.selectedTool === "select") {
+      const hoveredShape = this.getShapeAt(x, y);
+      this.canvas.style.cursor = hoveredShape ? "grab" : "crosshair";
+    } else {
+      this.canvas.style.cursor = "crosshair";
+    }
 
+    // Handle drawing preview
     if (!this.clicked) return;
 
     const width = x - this.startX;
@@ -513,6 +527,7 @@ export class Game {
     this.clicked = false;
     this.canvas.style.cursor = "crosshair";
 
+    // Handle shape update from dragging
     if (this.selectedShape && this.isDragging) {
       try {
         this.socket.send(
@@ -527,6 +542,12 @@ export class Game {
       }
 
       this.isDragging = false;
+      return;
+    }
+
+    // Only create shapes if NOT select tool
+    if (this.selectedTool === "select") {
+      this.currentPath = [];
       return;
     }
 
@@ -589,6 +610,9 @@ export class Game {
   };
 
   doubleClickHandler = (e: MouseEvent) => {
+    // Only delete if select tool is active
+    if (this.selectedTool !== "select") return;
+
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
     const shape = this.getShapeAt(x, y);
     if (shape) {
@@ -648,7 +672,7 @@ export class Game {
       }
 
       if (s.type === "text") {
-        this.ctx.font = `${s.fontSize}px Arial`;
+        this.ctx.font = `500 ${s.fontSize}px Arial`;
         const metrics = this.ctx.measureText(s.content);
         const textWidth = metrics.width;
         const textHeight = s.fontSize;

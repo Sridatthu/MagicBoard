@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +12,7 @@ import {
   Trash2,
   Moon,
   Sun,
+  Move,
 } from "lucide-react";
 import { Game } from "@/draw/Game";
 
@@ -133,21 +133,23 @@ function TopBar({
       }}
     >
       {[
-        { tool: "line", icon: <Minus /> },
-        { tool: "rect", icon: <RectangleHorizontalIcon /> },
-        { tool: "circle", icon: <Circle /> },
-        { tool: "pencil", icon: <Pencil /> },
-        { tool: "arrow", icon: <ArrowRight /> },
-        { tool: "text", icon: <TypeOutline /> },
-      ].map(({ tool, icon }) => (
-        <IconButton
-          key={tool}
-          onClick={() => setSelectedTool(tool as Tool)}
-          activated={selectedTool === tool}
-          icon={icon}
-        />
+        { tool: "select", icon: <Move size={20} />, label: "Select/Drag" },
+        { tool: "line", icon: <Minus size={20} />, label: "Line" },
+        { tool: "rect", icon: <RectangleHorizontalIcon size={20} />, label: "Rectangle" },
+        { tool: "circle", icon: <Circle size={20} />, label: "Circle" },
+        { tool: "pencil", icon: <Pencil size={20} />, label: "Pencil" },
+        { tool: "arrow", icon: <ArrowRight size={20} />, label: "Arrow" },
+        { tool: "text", icon: <TypeOutline size={20} />, label: "Text" },
+      ].map(({ tool, icon, label }) => (
+        <div key={tool} title={label}>
+          <IconButton
+            onClick={() => setSelectedTool(tool as Tool)}
+            activated={selectedTool === tool}
+            icon={icon}
+          />
+        </div>
       ))}
-      <IconButton onClick={onDelete} activated={false} icon={<Trash2 />} />
+      <IconButton onClick={onDelete} activated={false} icon={<Trash2 size={20} />} />
       <div
         className="w-px mx-1"
         style={{
