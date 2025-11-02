@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -10,10 +11,39 @@ import {
   RectangleHorizontalIcon,
   TypeOutline,
   Trash2,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { Game } from "@/draw/Game";
 
 export type Tool = "circle" | "rect" | "line" | "arrow" | "text" | "pencil" | "select";
+
+export type Theme = "light" | "dark";
+
+export interface ThemeColors {
+  background: string;
+  stroke: string;
+  fill: string;
+  selected: string;
+  text: string;
+}
+
+export const themes: Record<Theme, ThemeColors> = {
+  light: {
+    background: "#ffffff",
+    stroke: "#1f2937",
+    fill: "#3b82f6",
+    selected: "#f59e0b",
+    text: "#111827",
+  },
+  dark: {
+    background: "#0a0a0a",
+    stroke: "#e5e7eb",
+    fill: "#60a5fa",
+    selected: "#fbbf24",
+    text: "#f9fafb",
+  },
+};
 
 export function Canvas({
   roomId,
@@ -24,6 +54,7 @@ export function Canvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedTool, setSelectedTool] = useState<Tool>("circle");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [game, setGame] = useState<Game>();
 
   useEffect(() => {
@@ -31,18 +62,31 @@ export function Canvas({
   }, [selectedTool, game]);
 
   useEffect(() => {
+    game?.setTheme(theme);
+  }, [theme, game]);
+
+  useEffect(() => {
     if (canvasRef.current) {
-      const g = new Game(canvasRef.current, roomId, socket);
+      const g = new Game(canvasRef.current, roomId, socket, theme);
       setGame(g);
       return () => {
         g.destroy();
       };
     }
-  }, [canvasRef]);
+  }, [canvasRef, roomId, socket, theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
 
   return (
-    <div className="h-screen overflow-hidden bg-white text-black dark:bg-neutral-900 dark:text-white transition-colors duration-300">
-     
+    <div
+      className="h-screen overflow-hidden transition-colors duration-300"
+      style={{
+        backgroundColor: themes[theme].background,
+        color: themes[theme].text,
+      }}
+    >
       <canvas
         ref={canvasRef}
         width={window.innerWidth}
@@ -50,11 +94,12 @@ export function Canvas({
         className="w-full h-full"
       ></canvas>
 
-     
       <TopBar
         selectedTool={selectedTool}
         setSelectedTool={setSelectedTool}
         onDelete={() => game?.deleteSelectedShape()}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     </div>
   );
@@ -64,13 +109,29 @@ function TopBar({
   selectedTool,
   setSelectedTool,
   onDelete,
+  theme,
+  onToggleTheme,
 }: {
   selectedTool: Tool;
   setSelectedTool: (s: Tool) => void;
   onDelete: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }) {
+  const isDark = theme === "dark";
+
   return (
-    <div className="fixed top-4 left-4 z-10 flex gap-2 bg-white/60 dark:bg-neutral-800/60 backdrop-blur-md rounded-xl p-2 shadow-md border border-gray-200 dark:border-neutral-700 transition-colors duration-300">
+    <div
+      className="fixed top-4 left-4 z-10 flex gap-2 backdrop-blur-md rounded-xl p-2 shadow-md border transition-colors duration-300"
+      style={{
+        backgroundColor: isDark
+          ? "rgba(38, 38, 38, 0.6)"
+          : "rgba(255, 255, 255, 0.6)",
+        borderColor: isDark
+          ? "rgba(64, 64, 64, 1)"
+          : "rgba(229, 231, 235, 1)",
+      }}
+    >
       {[
         { tool: "line", icon: <Minus /> },
         { tool: "rect", icon: <RectangleHorizontalIcon /> },
@@ -87,6 +148,17 @@ function TopBar({
         />
       ))}
       <IconButton onClick={onDelete} activated={false} icon={<Trash2 />} />
+      <div
+        className="w-px mx-1"
+        style={{
+          backgroundColor: isDark ? "rgba(64, 64, 64, 1)" : "rgba(209, 213, 219, 1)",
+        }}
+      />
+      <IconButton
+        onClick={onToggleTheme}
+        activated={false}
+        icon={isDark ? <Sun size={20} /> : <Moon size={20} />}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { Tool } from "@/components/Canvas";
+
+import { Tool, Theme, themes, ThemeColors } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
 
 type Point = { x: number; y: number };
@@ -31,6 +32,10 @@ export class Game {
   private dragOffsetY: number = 0;
   private isDragging: boolean = false;
 
+  // Theme properties
+  private theme: Theme = "dark";
+  private colors: ThemeColors;
+
   // Text tool properties
   private isEditingText: boolean = false;
   private textInput: HTMLInputElement | null = null;
@@ -39,11 +44,18 @@ export class Game {
 
   socket: WebSocket;
 
-  constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    roomId: string,
+    socket: WebSocket,
+    theme: Theme = "dark"
+  ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.roomId = roomId;
     this.socket = socket;
+    this.theme = theme;
+    this.colors = themes[theme];
 
     this.init();
     this.initHandlers();
@@ -59,6 +71,15 @@ export class Game {
       this.existingShapes = [];
       this.clearCanvas();
     }
+  }
+
+  /**
+   * Update the theme and re-render the canvas
+   */
+  setTheme(theme: Theme) {
+    this.theme = theme;
+    this.colors = themes[theme];
+    this.clearCanvas();
   }
 
   initHandlers() {
@@ -86,7 +107,7 @@ export class Game {
           this.existingShapes = this.existingShapes.filter((s) => s.id !== shapeId);
           this.clearCanvas();
         } else if (message.type === "error") {
-         
+          console.error("Error message from server:", message);
         }
       } catch (error) {
         console.error("Failed to process WebSocket message:", error);
@@ -168,37 +189,43 @@ export class Game {
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Type text...";
-    
+
     // Convert canvas coordinates to screen coordinates
     const rect = this.canvas.getBoundingClientRect();
     const screenX = x * this.scale + this.offsetX + rect.left;
     const screenY = y * this.scale + this.offsetY + rect.top;
-    
+
+    // Determine colors based on theme
+    const isDark = this.theme === "dark";
+    const bgColor = isDark ? "#1f2937" : "#ffffff";
+    const textColor = isDark ? "#f9fafb" : "#111827";
+    const borderColor = isDark ? "#60a5fa" : "#3b82f6";
+
     // Style the input
     input.style.position = "fixed";
     input.style.left = `${screenX}px`;
     input.style.top = `${screenY}px`;
     input.style.fontSize = `${Math.max(16 * this.scale, 14)}px`;
     input.style.padding = "6px 12px";
-    input.style.background = "white";
-    input.style.color = "black";
-    input.style.border = "2px solid #3b82f6";
+    input.style.background = bgColor;
+    input.style.color = textColor;
+    input.style.border = `2px solid ${borderColor}`;
     input.style.borderRadius = "4px";
     input.style.outline = "none";
     input.style.fontFamily = "Arial, sans-serif";
     input.style.zIndex = "10000";
     input.style.minWidth = "200px";
     input.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
-    
+
     document.body.appendChild(input);
     this.textInput = input;
     this.tempTextX = x;
     this.tempTextY = y;
     this.isEditingText = true;
-    
+
     // Focus the input
     setTimeout(() => input.focus(), 10);
-    
+
     // Handle keyboard events
     input.onkeydown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
@@ -211,7 +238,7 @@ export class Game {
         this.cancelTextInput();
       }
     };
-    
+
     // Handle blur (clicking outside)
     input.onblur = () => {
       setTimeout(() => {
@@ -224,9 +251,9 @@ export class Game {
 
   private finishTextInput() {
     if (!this.textInput || !this.isEditingText) return;
-    
+
     const content = this.textInput.value.trim();
-    
+
     if (content.length > 0) {
       const id = this.generateId();
       const shape: Shape = {
@@ -237,9 +264,9 @@ export class Game {
         content,
         fontSize: 16
       };
-      
+
       this.existingShapes.push(shape);
-      
+
       try {
         this.socket.send(
           JSON.stringify({
@@ -252,10 +279,10 @@ export class Game {
         console.error("Failed to send text shape:", error);
         this.existingShapes.pop();
       }
-      
+
       this.clearCanvas();
     }
-    
+
     this.cancelTextInput();
   }
 
@@ -268,24 +295,34 @@ export class Game {
     this.canvas.style.cursor = "crosshair";
   }
 
+  /**
+   * Clear canvas and apply theme-based background
+   */
   clearCanvas() {
+    // Reset transform first
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = "rgba(0,0,0)";
+
+    // Apply theme background color
+    this.ctx.fillStyle = this.colors.background;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Apply transform for zooming and panning
     this.applyTransform();
-    this.ctx.strokeStyle = "rgba(255,255,255)";
+
+    // Set default theme colors
+    this.ctx.strokeStyle = this.colors.stroke;
     this.ctx.lineWidth = 2;
 
+    // Render all shapes
     this.existingShapes.forEach((shape) => {
       const isSelected = this.selectedShape && this.selectedShape.id === shape.id;
-      
+
       if (isSelected) {
-        this.ctx.strokeStyle = "rgba(255,255,0)";
+        this.ctx.strokeStyle = this.colors.selected;
         this.ctx.lineWidth = 3;
       } else {
-        this.ctx.strokeStyle = "rgba(255,255,255)";
+        this.ctx.strokeStyle = this.colors.stroke;
         this.ctx.lineWidth = 2;
       }
 
@@ -306,14 +343,14 @@ export class Game {
         this.drawArrow(shape.startX, shape.startY, shape.endX, shape.endY);
       } else if (shape.type === "text") {
         this.ctx.font = `${shape.fontSize}px Arial`;
-        this.ctx.fillStyle = isSelected ? "rgba(255,255,0)" : "rgba(255,255,255)";
+        this.ctx.fillStyle = isSelected ? this.colors.selected : this.colors.text;
         this.ctx.fillText(shape.content, shape.x, shape.y);
-        
+
         if (isSelected) {
           const metrics = this.ctx.measureText(shape.content);
           const textWidth = metrics.width;
           const textHeight = shape.fontSize;
-          this.ctx.strokeStyle = "rgba(255,255,0)";
+          this.ctx.strokeStyle = this.colors.selected;
           this.ctx.lineWidth = 2;
           this.ctx.strokeRect(shape.x, shape.y - textHeight, textWidth, textHeight + 4);
         }
@@ -329,7 +366,7 @@ export class Game {
     });
 
     // Reset styles
-    this.ctx.strokeStyle = "rgba(255,255,255)";
+    this.ctx.strokeStyle = this.colors.stroke;
     this.ctx.lineWidth = 2;
   }
 
@@ -353,7 +390,7 @@ export class Game {
     if (shape) {
       this.selectedShape = shape;
       this.isDragging = true;
-      
+
       if (shape.type === "rect") {
         this.dragOffsetX = x - shape.x;
         this.dragOffsetY = y - shape.y;
@@ -373,7 +410,7 @@ export class Game {
         this.dragOffsetX = x - shape.points[0].x;
         this.dragOffsetY = y - shape.points[0].y;
       }
-      
+
       this.canvas.style.cursor = "grabbing";
       this.clearCanvas();
       return;
@@ -382,7 +419,7 @@ export class Game {
     this.clicked = true;
     this.startX = x;
     this.startY = y;
-    
+
     if (this.selectedTool === "pencil") {
       this.currentPath = [{ x, y }];
     }
@@ -427,7 +464,7 @@ export class Game {
           p.y += offsetY;
         });
       }
-      
+
       this.clearCanvas();
       return;
     }
@@ -440,7 +477,9 @@ export class Game {
     const width = x - this.startX;
     const height = y - this.startY;
     this.clearCanvas();
-    this.ctx.strokeStyle = "rgba(255,255,255)";
+
+    // Use theme stroke color for preview
+    this.ctx.strokeStyle = this.colors.stroke;
 
     if (this.selectedTool === "rect") {
       this.ctx.strokeRect(this.startX, this.startY, width, height);
@@ -570,20 +609,20 @@ export class Game {
     const { x, y } = this.getTransformedPoint(e.clientX, e.clientY);
     const zoomFactor = 1.1;
     const prevScale = this.scale;
-    
+
     this.scale *= e.deltaY < 0 ? zoomFactor : 1 / zoomFactor;
     this.scale = Math.min(Math.max(this.scale, 0.5), 5);
-    
+
     this.offsetX -= x * this.scale - x * prevScale;
     this.offsetY -= y * this.scale - y * prevScale;
-    
+
     this.clearCanvas();
   };
 
   private getShapeAt(x: number, y: number): Shape | null {
     for (let i = this.existingShapes.length - 1; i >= 0; i--) {
       const s = this.existingShapes[i];
-      
+
       if (s.type === "rect") {
         const minX = Math.min(s.x, s.x + s.width);
         const maxX = Math.max(s.x, s.x + s.width);
@@ -591,29 +630,29 @@ export class Game {
         const maxY = Math.max(s.y, s.y + s.height);
         if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s;
       }
-      
+
       if (s.type === "circle") {
         if (Math.hypot(x - s.centerX, y - s.centerY) <= s.radius) return s;
       }
-      
+
       if (s.type === "line") {
         const tolerance = 5 / this.scale;
         const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
         if (dist <= tolerance) return s;
       }
-      
+
       if (s.type === "arrow") {
         const tolerance = 5 / this.scale;
         const dist = this.pointToLineDistance(x, y, s.startX, s.startY, s.endX, s.endY);
         if (dist <= tolerance) return s;
       }
-      
+
       if (s.type === "text") {
         this.ctx.font = `${s.fontSize}px Arial`;
         const metrics = this.ctx.measureText(s.content);
         const textWidth = metrics.width;
         const textHeight = s.fontSize;
-        
+
         if (
           x >= s.x &&
           x <= s.x + textWidth &&
@@ -623,7 +662,7 @@ export class Game {
           return s;
         }
       }
-      
+
       if (s.type === "pencil") {
         const tolerance = 5 / this.scale;
         for (let j = 0; j < s.points.length - 1; j++) {
@@ -682,9 +721,9 @@ export class Game {
   deleteSelectedShape() {
     if (this.selectedShape) {
       const shapeId = this.selectedShape.id;
-      
+
       this.existingShapes = this.existingShapes.filter((s) => s.id !== shapeId);
-      
+
       try {
         this.socket.send(
           JSON.stringify({
@@ -710,7 +749,7 @@ export class Game {
     this.canvas.addEventListener("wheel", this.zoomHandler);
     this.canvas.addEventListener("dblclick", this.doubleClickHandler);
     window.addEventListener("keydown", this.keyDownHandler);
-    
+
     this.canvas.style.cursor = "crosshair";
   }
 }
