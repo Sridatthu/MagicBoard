@@ -15,6 +15,7 @@ import { useRef } from "react"
 import axios from "axios"
 import { HTTP_BACKEND } from "@/config"
 import { useRouter } from "next/navigation"
+import toast from "react-hot-toast"
 
 
 export function Component() {
@@ -24,7 +25,7 @@ async  function CreateRoom(){
 
   const name=nameRef.current?.value?.trim();
   if(!name){
-    alert("please fill the required fields");
+    toast.error("Please fill all the required fields")
     return
   }
   try {
@@ -33,10 +34,12 @@ async  function CreateRoom(){
       headers:{
         Authorization:token
       }
-    })
-    alert("room created successfully")
+    }) 
+ 
+        toast.success("Room Created Successfully 🎉");
+  
   } catch (error:any) {
-    alert(error.esponse?.data?.message || "Something went wrong")
+    toast.error(error.response?.data?.message||"Something Went Wrong ❌");
   }finally{
     if (nameRef.current) nameRef.current.value = "";
   }
@@ -44,7 +47,7 @@ async  function CreateRoom(){
 async function JoinRoom(){
 const slug=nameRef.current?.value?.trim();
   if(!slug){
-    alert("please fill the required fields");
+    toast.error("Please fill all the required fields")
     return
   }
   try {
@@ -55,14 +58,19 @@ const slug=nameRef.current?.value?.trim();
       }
     })
     const roomId=res.data.roomId;
-  router.push(`/canvas/${roomId}`);
-    
+     if (res.status === 200) {
+        toast.success("Joining Room 🎉");
+        setTimeout(() => {
+            router.push(`/canvas/${roomId}`);
+        }, 1500);
+      }else{
+         toast.error("No room found to join ❌");
+      }
   } catch (error:any) {
-     alert(error.esponse?.data?.message || "Something went wrong")
+   toast.error(error.response.data.message||"No room found to join ❌");
   }finally{
     if (nameRef.current) nameRef.current.value = "";
   }
-
 
 }
   return (

@@ -15,6 +15,7 @@ import { useRef } from "react"
 import axios from "axios"
 import { HTTP_BACKEND } from "@/config"
 import { useRouter } from "next/navigation"
+import toast from "react-hot-toast"
 
 export function Login({isSignin}:{isSignin:boolean}) {
   const emailRef=useRef<HTMLInputElement>(null);
@@ -35,7 +36,7 @@ const  username=emailRef.current?.value?.trim();
 
 
 if (!username || !password || (!isSignin && !name)) {
-  alert("Please fill all required fields");
+ toast.error("Please fill all the required fields")
   return;
 }
   try {
@@ -43,14 +44,29 @@ if (!username || !password || (!isSignin && !name)) {
     const payload=isSignin? {username,password}:{name,username,password};
     const res=await axios.post(`${HTTP_BACKEND}${endPoint}`,payload);
     if(!isSignin){
-      router.push("/signin");
+      if (res.status === 200) {
+        toast.success("Sign up successful 🎉");
+
+       
+        setTimeout(() => {
+          router.push("/signin");
+        }, 1500);
+      }
+      
     }else{
       const token=res.data.token;
       localStorage.setItem("token",token);
-      router.push("/rooms")
+      if (res.status === 200) {
+        toast.success("Login successful 🎉");
+
+        setTimeout(() => {
+          router.push("/joinroom");
+        }, 1500);
+      }
+   
     }
   } catch (error:any) {
-    alert(error.response?.data?.message || "something went wrong")
+    toast.error(error.response?.data?.message||"Something Went Wrong ❌");
   }
 }
 

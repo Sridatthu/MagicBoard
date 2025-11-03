@@ -127,6 +127,11 @@ app.get("/room/:slug",middleware,async(req,res)=>{
         where:{
             slug
         }})
+        if(!room){
+            res.status(404).json({
+                message:"no room found with this ${slug} room"
+            })
+        }
     res.json({
         roomId:room?.id
     })
