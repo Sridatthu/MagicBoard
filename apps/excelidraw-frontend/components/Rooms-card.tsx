@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ShineBorder } from "./ui/shine-border";
 import { Clipboard, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 interface RoomCardProps {
   id: string;
   slug: string;
@@ -32,7 +33,12 @@ export function ShineBorderDemo({ id, slug }: RoomCardProps) {
   };
   const handleClick=(id:string)=>{
     const roomId=id.toString();
-      router.push(`/canvas/${roomId}`);
+     toast.success("Login successful 🎉");
+    
+            setTimeout(() => {
+             router.push(`/canvas/${roomId}`);
+            }, 1500);
+      
   }
 
   return (

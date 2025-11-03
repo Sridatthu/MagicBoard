@@ -1,5 +1,4 @@
 import NavBar from '@/components/NavBar'
-import { Component } from '@/components/Room-ex'
 import Rooms from '@/components/Rooms'
 import { ShineBorderDemo } from '@/components/Rooms-card'
 import { FadeText } from '@/components/ui/fade-text'
